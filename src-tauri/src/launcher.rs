@@ -12,8 +12,9 @@ pub fn open_in_file_manager(path: String) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
+        let win_path = path.replace('/', "\\");
         Command::new("explorer")
-            .arg(&path)
+            .arg(&win_path)
             .spawn()
             .map_err(|e| format!("Failed to open File Explorer: {}", e))?;
     }
@@ -61,16 +62,62 @@ pub fn open_in_terminal(path: String, terminal: Option<String>) -> Result<(), St
 
     #[cfg(target_os = "windows")]
     {
-        // Try Windows Terminal (wt.exe), fallback to powershell
-        let wt_result = Command::new("wt.exe")
-            .args(["-d", &path])
-            .spawn();
+        let win_path = path.replace('/', "\\");
+        let term_choice = terminal.as_deref().unwrap_or("default").to_lowercase();
+        let escaped_path = win_path.replace('\'', "''");
 
-        if wt_result.is_err() {
-            Command::new("powershell.exe")
-                .args(["-NoExit", "-Command", &format!("Set-Location -LiteralPath '{}'", path)])
-                .spawn()
-                .map_err(|e| format!("Failed to open PowerShell: {}", e))?;
+        match term_choice.as_str() {
+            "cmd" => {
+                Command::new("cmd.exe")
+                    .args(["/K", &format!("cd /d \"{}\"", win_path)])
+                    .spawn()
+                    .map_err(|e| format!("Failed to open Command Prompt: {}", e))?;
+            }
+            "powershell" => {
+                Command::new("powershell.exe")
+                    .args(["-NoExit", "-Command", &format!("Set-Location -LiteralPath '{}'", escaped_path)])
+                    .spawn()
+                    .map_err(|e| format!("Failed to open PowerShell: {}", e))?;
+            }
+            "gitbash" => {
+                let git_bash_paths = [
+                    "C:\\Program Files\\Git\\git-bash.exe",
+                    "C:\\Program Files (x86)\\Git\\git-bash.exe",
+                ];
+                let mut spawned = false;
+                for gpath in &git_bash_paths {
+                    if std::path::Path::new(gpath).exists() {
+                        if Command::new(gpath)
+                            .arg(format!("--cd={}", win_path))
+                            .spawn()
+                            .is_ok()
+                        {
+                            spawned = true;
+                            break;
+                        }
+                    }
+                }
+                if !spawned {
+                    // Fallback to PowerShell if Git Bash executable is not found
+                    Command::new("powershell.exe")
+                        .args(["-NoExit", "-Command", &format!("Set-Location -LiteralPath '{}'", escaped_path)])
+                        .spawn()
+                        .map_err(|e| format!("Failed to open terminal fallback: {}", e))?;
+                }
+            }
+            _ => {
+                // Try Windows Terminal (wt.exe), fallback to powershell
+                let wt_result = Command::new("wt.exe")
+                    .args(["-d", &win_path])
+                    .spawn();
+
+                if wt_result.is_err() {
+                    Command::new("powershell.exe")
+                        .args(["-NoExit", "-Command", &format!("Set-Location -LiteralPath '{}'", escaped_path)])
+                        .spawn()
+                        .map_err(|e| format!("Failed to open PowerShell: {}", e))?;
+                }
+            }
         }
     }
 
@@ -129,10 +176,25 @@ pub fn open_in_editor(path: String, editor: String) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        Command::new("cmd")
-            .args(["/C", editor_cmd, &path])
-            .spawn()
-            .map_err(|e| format!("Failed to launch {}: {}", editor_cmd, e))?;
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+        let win_path = path.replace('/', "\\");
+
+        // If editor is a direct executable file or path
+        if editor_cmd.ends_with(".exe") || editor_cmd.contains('\\') || editor_cmd.contains('/') {
+            Command::new(editor_cmd)
+                .arg(&win_path)
+                .spawn()
+                .map_err(|e| format!("Failed to launch {}: {}", editor_cmd, e))?;
+        } else {
+            // For CLI commands like 'code' or 'antigravity', run via cmd with hidden window to avoid console flash
+            Command::new("cmd")
+                .args(["/C", editor_cmd, &win_path])
+                .creation_flags(CREATE_NO_WINDOW)
+                .spawn()
+                .map_err(|e| format!("Failed to launch {}: {}", editor_cmd, e))?;
+        }
     }
 
     #[cfg(not(target_os = "windows"))]

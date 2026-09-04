@@ -53,6 +53,9 @@ const EDITOR_PRESETS: EditorPreset[] = [
 ]
 
 export const SettingsView: React.FC = () => {
+  const isWindows =
+    typeof navigator !== 'undefined' &&
+    /win/i.test(navigator.platform || navigator.userAgent)
   const {
     editor,
     customEditorPath,
@@ -243,19 +246,19 @@ export const SettingsView: React.FC = () => {
               <button
                 onClick={handleBrowseFile}
                 className='flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-300 bg-white/5 hover:bg-white/10 hover:text-white border border-white/10 transition-colors cursor-pointer whitespace-nowrap'
-                title='Browse for executable binary'
+                title={isWindows ? 'Browse for executable (.exe)' : 'Browse for executable binary'}
               >
                 <FolderOpen size={13} />
-                <span>Browse File</span>
+                <span>{isWindows ? 'Browse .exe' : 'Browse File'}</span>
               </button>
 
               <button
                 onClick={handleBrowseApp}
                 className='flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-300 bg-white/5 hover:bg-white/10 hover:text-white border border-white/10 transition-colors cursor-pointer whitespace-nowrap'
-                title='Browse for .app bundle (macOS)'
+                title={isWindows ? 'Browse folder' : 'Browse for .app bundle (macOS)'}
               >
                 <Sparkles size={13} />
-                <span>Browse .app</span>
+                <span>{isWindows ? 'Browse Folder' : 'Browse .app'}</span>
               </button>
             </div>
 
@@ -265,18 +268,28 @@ export const SettingsView: React.FC = () => {
                 className='text-slate-400 flex-shrink-0 mt-0.5'
               />
               <span>
-                <strong>macOS Tip:</strong> You can select the application
-                package (e.g.{' '}
-                <code className='text-slate-400 font-mono'>
-                  /Applications/Visual Studio Code.app
-                </code>
-                ) or terminal CLI command (e.g.{' '}
-                <code className='text-slate-400 font-mono'>code</code>,{' '}
-                <code className='text-slate-400 font-mono'>cursor</code>,{' '}
-                <code className='text-slate-400 font-mono'>
-                  /opt/homebrew/bin/zed
-                </code>
-                ).
+                <strong>{isWindows ? 'Windows Tip:' : 'macOS Tip:'}</strong>{' '}
+                {isWindows ? (
+                  <>
+                    You can select an executable binary (e.g.{' '}
+                    <code className='text-slate-400 font-mono'>
+                      C:\Users\AppData\Local\Programs\cursor\Cursor.exe
+                    </code>
+                    ) or a global CLI command (e.g.{' '}
+                    <code className='text-slate-400 font-mono'>code</code>,{' '}
+                    <code className='text-slate-400 font-mono'>antigravity</code>).
+                  </>
+                ) : (
+                  <>
+                    You can select the application package (e.g.{' '}
+                    <code className='text-slate-400 font-mono'>
+                      /Applications/Visual Studio Code.app
+                    </code>
+                    ) or terminal CLI command (e.g.{' '}
+                    <code className='text-slate-400 font-mono'>code</code>,{' '}
+                    <code className='text-slate-400 font-mono'>cursor</code>).
+                  </>
+                )}
               </span>
             </div>
           </div>
@@ -315,12 +328,20 @@ export const SettingsView: React.FC = () => {
           </div>
 
           <div className='grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-w-xl'>
-            {[
-              { id: 'default', label: 'Default Terminal' },
-              { id: 'iterm2', label: 'iTerm2' },
-              { id: 'warp', label: 'Warp' },
-              { id: 'alacritty', label: 'Alacritty' },
-            ].map((term) => {
+            {(isWindows
+              ? [
+                  { id: 'default', label: 'Windows Terminal' },
+                  { id: 'powershell', label: 'PowerShell' },
+                  { id: 'cmd', label: 'Command Prompt' },
+                  { id: 'gitbash', label: 'Git Bash' },
+                ]
+              : [
+                  { id: 'default', label: 'Default Terminal' },
+                  { id: 'iterm2', label: 'iTerm2' },
+                  { id: 'warp', label: 'Warp' },
+                  { id: 'alacritty', label: 'Alacritty' },
+                ]
+            ).map((term) => {
               const isSelected = terminal === term.id
               return (
                 <button
