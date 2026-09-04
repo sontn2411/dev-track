@@ -14,9 +14,9 @@ export function useKeyboardShortcuts({ onSearchFocus, onEscape }: ShortcutHandle
         if (onSearchFocus) {
           onSearchFocus()
         } else {
-          const searchInput = document.querySelector<HTMLInputElement>(
-            'input[type="text"]'
-          )
+          const searchInput =
+            document.querySelector<HTMLInputElement>('input[data-search-input]') ||
+            document.querySelector<HTMLInputElement>('input[type="text"]')
           searchInput?.focus()
           searchInput?.select()
         }

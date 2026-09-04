@@ -9,11 +9,20 @@ import {
 } from 'lucide-react'
 import { Select, SelectOption } from '@/components/ui'
 
-export type ProjectSortOption = 'custom' | 'name-asc' | 'name-desc' | 'frameworks' | 'language'
+export type ProjectSortOption =
+  | 'custom'
+  | 'recent'
+  | 'oldest'
+  | 'name-asc'
+  | 'name-desc'
+  | 'frameworks'
+  | 'language'
 export type ProjectViewMode = 'grid' | 'table'
 
 const SORT_OPTIONS: SelectOption<ProjectSortOption>[] = [
   { value: 'custom', label: 'Custom order' },
+  { value: 'recent', label: 'Recently modified' },
+  { value: 'oldest', label: 'Oldest modified' },
   { value: 'name-asc', label: 'Name (A-Z)' },
   { value: 'name-desc', label: 'Name (Z-A)' },
   { value: 'frameworks', label: 'Frameworks count' },
@@ -66,7 +75,8 @@ export const ProjectsToolbar: React.FC<ProjectsToolbarProps> = memo(
             />
             <input
               type='text'
-              placeholder='Search by name, path, framework...'
+              data-search-input
+              placeholder='Search by name, path, framework... (⌘K)'
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               className='w-full bg-[#11172c] border border-white/10 rounded-xl pl-10 pr-9 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors'

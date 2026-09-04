@@ -15,6 +15,7 @@ import {
 import { toast } from 'sonner'
 import { ProjectInfo } from '@/types/project'
 import { useProjectStore } from '@/stores/useProjectStore'
+import { formatRelativeTime } from '@/lib/utils'
 
 interface ProjectDetailModalProps {
   project: ProjectInfo | null
@@ -53,10 +54,15 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = memo(
       }
     }
 
-    const handleCopyScriptCommand = async (scriptName: string, _scriptCommand?: string) => {
+    const handleCopyScriptCommand = async (scriptName: string, scriptCommand?: string) => {
       try {
-        const pm = project.package_manager || 'npm'
-        const fullCmd = pm === 'cargo' ? `cargo ${scriptName}` : `${pm} run ${scriptName}`
+        let fullCmd = ''
+        if (project.project_type === 'Rust' || scriptCommand?.startsWith('cargo ') || scriptCommand?.startsWith('go ')) {
+          fullCmd = scriptCommand || `cargo ${scriptName}`
+        } else {
+          const pm = project.package_manager || 'npm'
+          fullCmd = pm === 'cargo' ? (scriptCommand || `cargo ${scriptName}`) : `${pm} run ${scriptName}`
+        }
         await navigator.clipboard.writeText(fullCmd)
         setCopiedScript(scriptName)
         toast.success(`Copied "${fullCmd}"`)
@@ -199,8 +205,8 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = memo(
 
                   <div className='bg-[#11172a] border border-white/5 rounded-xl p-3'>
                     <span className='text-slate-400 block mb-1'>Last Modified</span>
-                    <span className='text-white font-semibold'>
-                      {project.last_modified || 'Unknown'}
+                    <span className='text-white font-semibold' title={project.last_modified || undefined}>
+                      {formatRelativeTime(project.last_modified)}
                     </span>
                   </div>
                 </div>

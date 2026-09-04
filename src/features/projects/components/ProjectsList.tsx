@@ -104,6 +104,16 @@ export const ProjectsList: React.FC = memo(() => {
       if (!aPinned && bPinned) return 1
 
       switch (sortOption) {
+        case 'recent': {
+          const timeA = a.last_modified ? new Date(a.last_modified).getTime() : 0
+          const timeB = b.last_modified ? new Date(b.last_modified).getTime() : 0
+          return timeB - timeA
+        }
+        case 'oldest': {
+          const timeA = a.last_modified ? new Date(a.last_modified).getTime() : 0
+          const timeB = b.last_modified ? new Date(b.last_modified).getTime() : 0
+          return timeA - timeB
+        }
         case 'name-asc':
           return a.name.localeCompare(b.name)
         case 'name-desc':

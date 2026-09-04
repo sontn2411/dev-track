@@ -47,7 +47,7 @@ pub fn scan_path(root_str: &str, max_depth: usize) -> ScanResult {
         };
     }
 
-    let walker = WalkDir::new(&root_path)
+    let mut walker = WalkDir::new(&root_path)
         .max_depth(max_depth)
         .follow_links(false)
         .into_iter()
@@ -56,13 +56,17 @@ pub fn scan_path(root_str: &str, max_depth: usize) -> ScanResult {
                 return true;
             }
             let file_name = entry.file_name().to_string_lossy();
-            if IGNORED_DIRS.contains(&file_name.as_ref()) {
-                return false;
-            }
-            true
+            !IGNORED_DIRS.contains(&file_name.as_ref())
         });
 
-    for entry in walker.filter_map(|e| e.ok()) {
+    let mut monorepo_roots: HashSet<PathBuf> = HashSet::new();
+
+    while let Some(res) = walker.next() {
+        let entry = match res {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+
         if entry.file_type().is_dir() {
             scanned_count += 1;
             let dir_path = entry.path();
@@ -73,29 +77,33 @@ pub fn scan_path(root_str: &str, max_depth: usize) -> ScanResult {
                 .any(|p| dir_path != p && dir_path.starts_with(p));
 
             if is_inside_found_project {
-                // Check if parent was a monorepo
                 let parent_is_monorepo = found_project_paths.iter().any(|p| {
-                    if dir_path != p && dir_path.starts_with(p) {
-                        is_monorepo_root(p)
-                    } else {
-                        false
-                    }
+                    dir_path != p && dir_path.starts_with(p) && monorepo_roots.contains(p)
                 });
 
                 if !parent_is_monorepo {
+                    walker.skip_current_dir();
                     continue;
                 }
             }
 
             if let Some(project) = analyze_directory(dir_path) {
+                let is_monorepo = is_monorepo_root(dir_path);
+                if is_monorepo {
+                    monorepo_roots.insert(dir_path.to_path_buf());
+                } else {
+                    // Skip descending into subdirectories of standalone projects
+                    walker.skip_current_dir();
+                }
+
                 found_project_paths.insert(dir_path.to_path_buf());
                 projects.push(project);
             }
         }
     }
 
-    // Sort projects by name
-    projects.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    // Sort projects alphabetically
+    projects.sort_by_key(|a| a.name.to_lowercase());
 
     ScanResult {
         root_path: root_str.to_string(),

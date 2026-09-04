@@ -17,7 +17,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isScanning,
 }) => {
   return (
-    <aside className='w-48 min-w-48 bg-[#0f1424] flex flex-col p-3 gap-3 flex-shrink-0 z-20 select-none border-r border-white/5'>
+    <aside className='w-56 min-w-56 bg-[#0f1424] flex flex-col p-3 gap-3 flex-shrink-0 z-20 select-none border-r border-white/5'>
       {/* Brand Logo */}
       <div className='flex items-center px-1 py-0.5'>
         <img

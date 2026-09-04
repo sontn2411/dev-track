@@ -190,13 +190,11 @@ pub fn analyze_directory(dir_path: &Path) -> Option<ProjectInfo> {
             ];
 
             for (crate_name, display) in rust_frameworks {
-                if content.contains(&format!("\"{}\"", crate_name))
+                let has_crate = content.contains(&format!("\"{}\"", crate_name))
                     || content.contains(&format!("{} =", crate_name))
-                    || content.contains(&format!("{}=", crate_name))
-                {
-                    if !frameworks.iter().any(|f| f == display) {
-                        frameworks.push(display.to_string());
-                    }
+                    || content.contains(&format!("{}=", crate_name));
+                if has_crate && !frameworks.iter().any(|f| f == display) {
+                    frameworks.push(display.to_string());
                 }
             }
 
@@ -295,7 +293,7 @@ pub fn analyze_directory(dir_path: &Path) -> Option<ProjectInfo> {
                 let trimmed = line.trim();
                 if trimmed.starts_with("module ") {
                     let mod_name = trimmed.trim_start_matches("module").trim();
-                    let short_name = mod_name.split('/').last().unwrap_or(mod_name);
+                    let short_name = mod_name.split('/').next_back().unwrap_or(mod_name);
                     if !short_name.is_empty() {
                         project_name = short_name.to_string();
                     }
@@ -401,26 +399,38 @@ pub fn analyze_directory(dir_path: &Path) -> Option<ProjectInfo> {
     }
 
     // 8. Docker presence check
-    if dir_path.join("docker-compose.yml").exists()
+    let has_docker = dir_path.join("docker-compose.yml").exists()
         || dir_path.join("docker-compose.yaml").exists()
-        || dir_path.join("Dockerfile").exists()
-    {
-        if !frameworks.iter().any(|f| f == "Docker") {
-            frameworks.push("Docker".to_string());
-        }
+        || dir_path.join("Dockerfile").exists();
+    if has_docker && !frameworks.iter().any(|f| f == "Docker") {
+        frameworks.push("Docker".to_string());
     }
 
     // 9. Git Repository & Branch check
-    let git_dir = dir_path.join(".git");
-    let is_git_repo = git_dir.exists();
+    let git_path = dir_path.join(".git");
+    let is_git_repo = git_path.exists();
     let mut git_branch: Option<String> = None;
 
     if is_git_repo {
-        let head_file = git_dir.join("HEAD");
+        let actual_git_dir = if git_path.is_file() {
+            // Git submodule or worktree pointing to real git dir
+            fs::read_to_string(&git_path)
+                .ok()
+                .and_then(|c| {
+                    c.trim()
+                        .strip_prefix("gitdir:")
+                        .map(|gd| dir_path.join(gd.trim()))
+                })
+                .unwrap_or(git_path)
+        } else {
+            git_path
+        };
+
+        let head_file = actual_git_dir.join("HEAD");
         if let Ok(head_content) = fs::read_to_string(&head_file) {
             let trimmed = head_content.trim();
-            if trimmed.starts_with("ref: refs/heads/") {
-                git_branch = Some(trimmed.trim_start_matches("ref: refs/heads/").to_string());
+            if let Some(branch) = trimmed.strip_prefix("ref: refs/heads/") {
+                git_branch = Some(branch.to_string());
             } else if !trimmed.is_empty() {
                 // Detached HEAD or commit sha (first 7 chars)
                 git_branch = Some(trimmed.chars().take(7).collect());

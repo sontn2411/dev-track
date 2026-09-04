@@ -39,7 +39,7 @@ interface ProjectState {
 
   // Launcher Actions
   openInEditor: (path: string, editor?: string) => Promise<void>
-  openInTerminal: (path: string) => Promise<void>
+  openInTerminal: (path: string, terminal?: string) => Promise<void>
   openInFileManager: (path: string) => Promise<void>
 }
 
@@ -126,9 +126,10 @@ export const useProjectStore = create<ProjectState>()(
 
         set({ isScanning: true })
         try {
+          const depth = useSettingsStore.getState().scanDepth || 4
           const results: ScanResult[] = await projectService.scanDirectories(
             targets,
-            4
+            depth
           )
 
           let allProjects: ProjectInfo[] = []
@@ -229,9 +230,10 @@ export const useProjectStore = create<ProjectState>()(
         }
       },
 
-      openInTerminal: async (path) => {
+      openInTerminal: async (path, terminal) => {
         try {
-          await launcherService.openInTerminal(path)
+          const targetTerminal = terminal || useSettingsStore.getState().terminal
+          await launcherService.openInTerminal(path, targetTerminal)
         } catch (err) {
           console.error('Open terminal error:', err)
         }

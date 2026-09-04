@@ -10,10 +10,10 @@ export const launcherService = {
   },
 
   /**
-   * Opens the project path in the default terminal
+   * Opens the project path in the default or specified terminal emulator
    */
-  async openInTerminal(path: string): Promise<void> {
-    return safeInvoke<void>('open_in_terminal', { path })
+  async openInTerminal(path: string, terminal?: string): Promise<void> {
+    return safeInvoke<void>('open_in_terminal', { path, terminal })
   },
 
   /**

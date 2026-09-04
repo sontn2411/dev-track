@@ -30,13 +30,33 @@ pub fn open_in_file_manager(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn open_in_terminal(path: String) -> Result<(), String> {
+pub fn open_in_terminal(path: String, terminal: Option<String>) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        Command::new("open")
-            .args(["-a", "Terminal", &path])
-            .spawn()
-            .map_err(|e| format!("Failed to open Terminal: {}", e))?;
+        let term_choice = terminal.as_deref().unwrap_or("default").to_lowercase();
+        let app_name = match term_choice.as_str() {
+            "iterm2" | "iterm" => "iTerm",
+            "warp" => "Warp",
+            "alacritty" => "Alacritty",
+            _ => "Terminal",
+        };
+
+        // Try launching preferred terminal
+        let spawn_res = Command::new("open")
+            .args(["-a", app_name, &path])
+            .spawn();
+
+        if let Err(e) = spawn_res {
+            // If custom terminal failed, fallback to default Terminal.app
+            if app_name != "Terminal" {
+                Command::new("open")
+                    .args(["-a", "Terminal", &path])
+                    .spawn()
+                    .map_err(|err| format!("Failed to open fallback Terminal: {}", err))?;
+            } else {
+                return Err(format!("Failed to open Terminal: {}", e));
+            }
+        }
     }
 
     #[cfg(target_os = "windows")]
