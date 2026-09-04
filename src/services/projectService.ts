@@ -10,6 +10,13 @@ export const projectService = {
   },
 
   /**
+   * Opens the OS native file picker dialog
+   */
+  async pickFile(): Promise<string | null> {
+    return safeInvoke<string | null>('pick_file')
+  },
+
+  /**
    * Scans given filesystem paths for developer projects
    */
   async scanDirectories(paths: string[], depth = 4): Promise<ScanResult[]> {

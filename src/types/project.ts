@@ -26,5 +26,5 @@ export type SortField = "name" | "last_modified" | "type" | "framework_count";
 export type SortOrder = "asc" | "desc";
 export type ViewMode = "board" | "list" | "grid" | "table";
 export type NavTab = "projects" | "scan" | "settings";
-export type EditorType = "vscode" | "cursor" | "zed" | "idea" | "webstorm" | "sublime";
+export type EditorType = "vscode" | "antigravity" | "custom";
 

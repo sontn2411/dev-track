@@ -1,7 +1,7 @@
 import React from 'react'
 import { Sidebar } from './Sidebar'
 import { NavTab } from '@/types/project'
-import { useProjects } from '@/context/ProjectContext'
+import { useProjectStore } from '@/stores/useProjectStore'
 
 interface AppLayoutProps {
   activeTab: NavTab
@@ -14,7 +14,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   onSelectTab,
   children,
 }) => {
-  const { savedProjects, isScanning } = useProjects()
+  const savedProjects = useProjectStore((s) => s.savedProjects)
+  const isScanning = useProjectStore((s) => s.isScanning)
 
   return (
     <div className='flex h-screen w-screen overflow-hidden bg-[#090d16] text-slate-100 font-sans select-none'>

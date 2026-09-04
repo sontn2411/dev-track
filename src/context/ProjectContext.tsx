@@ -9,6 +9,7 @@ import { ProjectInfo, ScanResult } from '@/types/project'
 import { STORAGE_KEYS } from '@/constants/storage'
 import { projectService } from '@/services/projectService'
 import { launcherService } from '@/services/launcherService'
+import { useProjectStore } from '@/stores/useProjectStore'
 
 interface ProjectContextType {
   // State
@@ -270,8 +271,11 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
 
 export function useProjects(): ProjectContextType {
   const context = useContext(ProjectContext)
-  if (!context) {
-    throw new Error('useProjects must be used within a ProjectProvider')
-  }
-  return context
+  if (context) return context
+  // Fallback to Zustand store if called outside provider
+  const store = useProjectStore.getState()
+  return {
+    ...store,
+    savedProjectIds: new Set(store.savedProjects.map((p: ProjectInfo) => p.id)),
+  } as unknown as ProjectContextType
 }

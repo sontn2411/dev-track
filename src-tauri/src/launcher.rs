@@ -68,13 +68,43 @@ pub fn open_in_terminal(path: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn open_in_editor(path: String, editor: String) -> Result<(), String> {
-    let editor_cmd = match editor.to_lowercase().as_str() {
-        "cursor" => "cursor",
-        "webstorm" => "webstorm",
-        "zed" => "zed",
-        "sublime" => "subl",
-        "idea" => "idea",
-        _ => "code", // default to VS Code
+    let trimmed = editor.trim();
+    if trimmed.is_empty() {
+        return Err("Editor command or path is empty".to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        if trimmed.eq_ignore_ascii_case("antigravity") {
+            // Try launching "Antigravity IDE" first, then "Antigravity"
+            if Command::new("open")
+                .args(["-a", "Antigravity IDE", &path])
+                .spawn()
+                .is_ok()
+            {
+                return Ok(());
+            }
+
+            Command::new("open")
+                .args(["-a", "Antigravity", &path])
+                .spawn()
+                .map_err(|e| format!("Failed to launch Antigravity: {}", e))?;
+            return Ok(());
+        }
+
+        if trimmed.ends_with(".app") || trimmed.starts_with("/Applications/") {
+            Command::new("open")
+                .args(["-a", trimmed, &path])
+                .spawn()
+                .map_err(|e| format!("Failed to launch {}: {}", trimmed, e))?;
+            return Ok(());
+        }
+    }
+
+    let editor_cmd = match trimmed.to_lowercase().as_str() {
+        "antigravity" => "antigravity",
+        "vscode" | "code" => "code",
+        _ => trimmed,
     };
 
     #[cfg(target_os = "windows")]

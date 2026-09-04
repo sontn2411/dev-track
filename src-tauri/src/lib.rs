@@ -13,6 +13,12 @@ fn pick_directory() -> Option<String> {
 }
 
 #[tauri::command]
+fn pick_file() -> Option<String> {
+    let file = FileDialog::new().pick_file();
+    file.map(|p| p.to_string_lossy().to_string())
+}
+
+#[tauri::command]
 fn scan_directories(paths: Vec<String>, depth: Option<usize>) -> Vec<ScanResult> {
     let max_depth = depth.unwrap_or(4);
     paths
@@ -27,6 +33,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             pick_directory,
+            pick_file,
             scan_directories,
             launcher::open_in_file_manager,
             launcher::open_in_terminal,

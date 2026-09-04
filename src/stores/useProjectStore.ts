@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { toast } from 'sonner'
 import { ProjectInfo, ScanResult, NavTab } from '@/types/project'
 import { projectService } from '@/services/projectService'
 import { launcherService } from '@/services/launcherService'
+import { useSettingsStore } from './useSettingsStore'
 
 interface ProjectState {
   // Navigation
@@ -32,6 +34,8 @@ interface ProjectState {
   saveAllProjects: (projects: ProjectInfo[]) => void
   removeSavedProject: (id: string) => void
   togglePin: (id: string) => void
+  reorderSavedProjects: (sourceId: string, targetId: string) => void
+  setSavedProjects: (projects: ProjectInfo[]) => void
 
   // Launcher Actions
   openInEditor: (path: string, editor?: string) => Promise<void>
@@ -64,12 +68,17 @@ export const useProjectStore = create<ProjectState>()(
             if (!rootFolders.includes(selected)) {
               const nextFolders = [...rootFolders, selected]
               set({ rootFolders: nextFolders })
-              scanFolders(nextFolders)
+              toast.info(`Scanning directory: ${selected}`)
+              await scanFolders(nextFolders)
+            } else {
+              toast.info(`Rescanning directory: ${selected}`)
+              await scanFolders([selected])
             }
           }
           return selected
         } catch (err) {
           console.error('Pick folder error:', err)
+          toast.error('Failed to select directory')
           return null
         }
       },
@@ -78,18 +87,42 @@ export const useProjectStore = create<ProjectState>()(
         const { rootFolders } = get()
         if (!rootFolders.includes(path)) {
           set({ rootFolders: [...rootFolders, path] })
+          toast.success('Directory added to scan list')
         }
       },
 
       removeFolder: (path) => {
-        const { rootFolders } = get()
-        set({ rootFolders: rootFolders.filter((f) => f !== path) })
+        const { rootFolders, scannedProjects } = get()
+        const nextFolders = rootFolders.filter((f) => f !== path)
+
+        // Remove projects originating from the removed folder path
+        const nextProjects =
+          nextFolders.length === 0
+            ? []
+            : scannedProjects.filter(
+                (p) =>
+                  p.path !== path &&
+                  !p.path.startsWith(path + '/') &&
+                  !p.path.startsWith(path + '\\')
+              )
+
+        set({
+          rootFolders: nextFolders,
+          scannedProjects: nextProjects,
+          ...(nextFolders.length === 0
+            ? { totalScanned: 0, scanDurationMs: 0 }
+            : {}),
+        })
+        toast.info('Directory removed from scan list')
       },
 
       // Scan Actions
       scanFolders: async (foldersToScan) => {
         const targets = foldersToScan ?? get().rootFolders
-        if (targets.length === 0) return
+        if (targets.length === 0) {
+          toast.warning('No directories to scan')
+          return
+        }
 
         set({ isScanning: true })
         try {
@@ -113,13 +146,19 @@ export const useProjectStore = create<ProjectState>()(
             uniqueProjectsMap.set(p.path, p)
           }
 
+          const projectList = Array.from(uniqueProjectsMap.values())
           set({
-            scannedProjects: Array.from(uniqueProjectsMap.values()),
+            scannedProjects: projectList,
             totalScanned: totalCount,
             scanDurationMs: totalTime,
           })
+
+          toast.success(
+            `Found ${projectList.length} projects (${(totalTime / 1000).toFixed(2)}s)`
+          )
         } catch (err) {
           console.error('Scan error:', err)
+          toast.error('An error occurred during scanning')
         } finally {
           set({ isScanning: false })
         }
@@ -127,6 +166,7 @@ export const useProjectStore = create<ProjectState>()(
 
       clearCache: () => {
         set({ scannedProjects: [], totalScanned: 0, scanDurationMs: 0 })
+        toast.info('Scan cache cleared')
       },
 
       // Project Collection Actions
@@ -134,6 +174,7 @@ export const useProjectStore = create<ProjectState>()(
         const { savedProjects } = get()
         if (!savedProjects.some((p) => p.id === project.id)) {
           set({ savedProjects: [...savedProjects, project] })
+          toast.success(`Saved "${project.name}" to projects`)
         }
       },
 
@@ -142,11 +183,16 @@ export const useProjectStore = create<ProjectState>()(
         const existingIds = new Set(savedProjects.map((p) => p.id))
         const newProjects = projectsToSave.filter((p) => !existingIds.has(p.id))
         set({ savedProjects: [...savedProjects, ...newProjects] })
+        toast.success(`Saved ${newProjects.length} new projects`)
       },
 
       removeSavedProject: (id) => {
         const { savedProjects } = get()
+        const target = savedProjects.find((p) => p.id === id)
         set({ savedProjects: savedProjects.filter((p) => p.id !== id) })
+        if (target) {
+          toast.info(`Removed "${target.name}"`)
+        }
       },
 
       togglePin: (id) => {
@@ -157,10 +203,27 @@ export const useProjectStore = create<ProjectState>()(
         set({ pinnedIds: next })
       },
 
+      reorderSavedProjects: (sourceId, targetId) => {
+        const { savedProjects } = get()
+        const sourceIndex = savedProjects.findIndex((p) => p.id === sourceId)
+        const targetIndex = savedProjects.findIndex((p) => p.id === targetId)
+        if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) return
+
+        const updated = [...savedProjects]
+        const [movedItem] = updated.splice(sourceIndex, 1)
+        updated.splice(targetIndex, 0, movedItem)
+        set({ savedProjects: updated })
+      },
+
+      setSavedProjects: (projects) => {
+        set({ savedProjects: projects })
+      },
+
       // Launcher Actions
-      openInEditor: async (path, editor = 'vscode') => {
+      openInEditor: async (path, editor) => {
         try {
-          await launcherService.openInEditor(path, editor)
+          const targetEditor = editor || useSettingsStore.getState().getEffectiveEditorCommand()
+          await launcherService.openInEditor(path, targetEditor)
         } catch (err) {
           console.error('Open editor error:', err)
         }
