@@ -6,6 +6,7 @@ import { ProjectsView } from '@/features/projects/ProjectsView'
 import { ScanView } from '@/features/scanner/ScanView'
 import { SettingsView } from '@/features/settings/SettingsView'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { Toaster } from 'sonner'
 import './App.css'
 
 function AppContent() {
@@ -21,6 +22,7 @@ function AppContent() {
       )}
       {activeTab === 'scan' && <ScanView />}
       {activeTab === 'settings' && <SettingsView />}
+      <Toaster theme="dark" position="bottom-right" richColors />
     </AppLayout>
   )
 }
